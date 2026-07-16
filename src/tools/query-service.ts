@@ -1,6 +1,7 @@
 import type { DbConfig } from "../config/env.js";
 import { redactSecrets } from "../config/env.js";
 import { withReadonlyClient } from "../db/pool.js";
+import { buildSchemaErrorHint } from "../schema/amocrm-schema.js";
 import { validateReadonlySql } from "../security/sql-validator.js";
 
 export type QuerySuccess = {
@@ -23,6 +24,7 @@ export type QueryFailure = {
     | "result_too_large"
     | "config_error";
   message: string;
+  schema_hint?: string;
 };
 
 export type QueryResult = QuerySuccess | QueryFailure;
@@ -98,10 +100,12 @@ function mapError(err: unknown, password: string): QueryFailure {
     };
   }
 
+  const schemaHint = buildSchemaErrorHint(message);
   return {
     success: false,
     error_type: "execution_error",
     message: `Ошибка выполнения запроса: ${message}`,
+    ...(schemaHint ? { schema_hint: schemaHint } : {}),
   };
 }
 

@@ -112,6 +112,16 @@ WHERE is_deleted = FALSE
 
 В `contacts` нет отдельных колонок телефона. Ищите через `custom_fields` / `custom_field_values` (и при необходимости `raw` JSONB), например по `custom_fields.code` или `name`.
 
+## Ловушки (часто)
+
+- У `stages` **нет** `id`. PK: `(pipeline_id, status_id)`.
+- Join этапа: `s.pipeline_id = l.pipeline_id AND s.status_id = l.status_id`.
+- Won/lost: `status_id` 142 / 143.
+- Телефон/email — через `custom_fields` / `custom_field_values`.
+- Не запрашивать `raw_webhooks`, `sync_state`.
+
+Tool `get_amocrm_schema` возвращает тот же словарь колонок/join’ов без данных клиентов.
+
 ## Даты и идентификаторы
 
 - Id сущностей — `BIGINT` (как в amoCRM).

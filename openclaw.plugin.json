@@ -2,7 +2,7 @@
   "id": "amocrm-readonly-sql",
   "name": "amoCRM Read-only SQL",
   "description": "Safe read-only SQL access to an existing amoCRM PostgreSQL database. Does not create or manage PostgreSQL.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
@@ -28,12 +28,18 @@
     "onStartup": true
   },
   "contracts": {
-    "tools": ["query_amocrm_database"]
+    "tools": ["get_amocrm_schema", "query_amocrm_database"]
   },
   "toolMetadata": {
+    "get_amocrm_schema": {
+      "name": "get_amocrm_schema",
+      "label": "Схема amoCRM",
+      "description": "Return the static read-only schema dictionary for the amoCRM PostgreSQL mirror.",
+      "optional": false
+    },
     "query_amocrm_database": {
       "name": "query_amocrm_database",
-      "label": "Query amoCRM database",
+      "label": "Запрос к базе amoCRM",
       "description": "Execute a safe read-only SQL query against the existing amoCRM PostgreSQL mirror.",
       "optional": false
     }

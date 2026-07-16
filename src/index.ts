@@ -1,6 +1,10 @@
 import { Type } from "typebox";
 import { defineToolPlugin } from "openclaw/plugin-sdk/tool-plugin";
 import { loadDbConfig, type PluginDbOverrides } from "./config/env.js";
+import {
+  buildQueryToolSchemaSummary,
+  getAmocrmSchemaPayload,
+} from "./schema/amocrm-schema.js";
 import { runReadonlyQuery } from "./tools/query-service.js";
 
 const configSchema = Type.Object({
@@ -39,21 +43,21 @@ type PluginConfig = {
 
 const TOOL_DESCRIPTION = `Execute a safe read-only SQL query against the existing amoCRM PostgreSQL mirror.
 
-Rules for the model:
-1. Prefer COUNT, EXISTS, SUM, AVG, MIN, MAX and GROUP BY before listing rows.
-2. Do not fetch full entity lists when a count is enough.
-3. Never use SELECT *.
-4. For lists, default to at most 10 rows (pass max_rows only when needed; hard backend cap still applies).
-5. For full details, first resolve a specific id.
-6. Never dump an entire table.
-7. Do not request personal data unless required for the answer.
-8. Select only columns needed for the answer.
-9. Allowed tables: leads, pipelines, stages, contacts, companies, amo_users, tasks, notes, events, custom_fields, custom_field_values, lead_contacts.
-10. Do not query raw_webhooks or sync_state.
-11. Lead status: active = not deleted and status_id NOT IN (142, 143); won = 142; lost = 143. Prefer joining stages for human-readable names.
-12. Schema is public only. Only SELECT / WITH ... SELECT.
+Rules:
+1. Prefer COUNT/EXISTS/SUM/AVG/MIN/MAX and GROUP BY before listing rows.
+2. Never use SELECT *. Prefer preferred columns only.
+3. Lists: default max_rows=10 (hard server cap still applies).
+4. Never dump entire tables. Avoid personal data unless required.
+5. Only SELECT / WITH ... SELECT. Schema public only.
+6. Do not query raw_webhooks or sync_state.
+7. Lead status: active = is_deleted=FALSE AND status_id NOT IN (142,143); won=142; lost=143.
+8. If unsure about columns/joins, call get_amocrm_schema first (or after a column error).
+9. Put a short Russian purpose describing the user-facing goal.
 
-See Docs/generated/schema-overview.md for joins and examples.`;
+${buildQueryToolSchemaSummary()}
+
+Example stage join:
+LEFT JOIN stages s ON s.pipeline_id = l.pipeline_id AND s.status_id = l.status_id`;
 
 function toOverrides(config: PluginConfig): PluginDbOverrides {
   return {
@@ -72,6 +76,24 @@ function toOverrides(config: PluginConfig): PluginDbOverrides {
   };
 }
 
+function loadConfigOrError(config: PluginConfig) {
+  try {
+    return { ok: true as const, dbConfig: loadDbConfig(toOverrides(config)) };
+  } catch (err) {
+    return {
+      ok: false as const,
+      error: {
+        success: false as const,
+        error_type: "config_error" as const,
+        message:
+          err instanceof Error
+            ? err.message
+            : "Конфигурация БД не задана. Запустите scripts/install.sh.",
+      },
+    };
+  }
+}
+
 export default defineToolPlugin({
   id: "amocrm-readonly-sql",
   name: "amoCRM Read-only SQL",
@@ -80,15 +102,34 @@ export default defineToolPlugin({
   configSchema,
   tools: (tool) => [
     tool({
+      name: "get_amocrm_schema",
+      label: "Схема amoCRM",
+      description:
+        "Return the static read-only schema dictionary for the amoCRM PostgreSQL mirror: tables, columns, PKs, joins, gotchas, and example SELECTs. No customer data. Call this before writing SQL if unsure about columns (especially stages: no id, use pipeline_id+status_id).",
+      parameters: Type.Object({
+        table: Type.Optional(
+          Type.String({
+            description:
+              "Optional single table name to return (e.g. stages, leads). Omit for full schema.",
+          }),
+        ),
+      }),
+      execute(params) {
+        const { table } = params as { table?: string };
+        return getAmocrmSchemaPayload(table);
+      },
+    }),
+    tool({
       name: "query_amocrm_database",
-      label: "Query amoCRM database",
+      label: "Запрос к базе amoCRM",
       description: TOOL_DESCRIPTION,
       parameters: Type.Object({
         sql: Type.String({
           description: "A single SELECT or WITH ... SELECT statement",
         }),
         purpose: Type.String({
-          description: "Short description of why this query is needed",
+          description:
+            "Short Russian description of the goal shown/used as intent (not SQL)",
         }),
         max_rows: Type.Optional(
           Type.Number({
@@ -105,21 +146,10 @@ export default defineToolPlugin({
         };
         context.signal?.throwIfAborted?.();
 
-        let dbConfig;
-        try {
-          dbConfig = loadDbConfig(toOverrides(config as PluginConfig));
-        } catch (err) {
-          return {
-            success: false,
-            error_type: "config_error",
-            message:
-              err instanceof Error
-                ? err.message
-                : "Конфигурация БД не задана. Запустите scripts/install.sh.",
-          };
-        }
+        const loaded = loadConfigOrError(config as PluginConfig);
+        if (!loaded.ok) return loaded.error;
 
-        return runReadonlyQuery({ sql, purpose, max_rows }, dbConfig);
+        return runReadonlyQuery({ sql, purpose, max_rows }, loaded.dbConfig);
       },
     }),
   ],

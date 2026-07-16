@@ -1,6 +1,6 @@
 {
   "name": "openclaw-amocrm-readonly-sql",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "OpenClaw tool plugin: safe read-only SQL queries against an existing amoCRM PostgreSQL database",
   "type": "module",
   "main": "./dist/index.js",

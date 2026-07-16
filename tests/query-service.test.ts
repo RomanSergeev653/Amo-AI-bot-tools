@@ -113,6 +113,20 @@ describe("runReadonlyQuery", () => {
     if (!result.success) expect(result.error_type).toBe("connection_error");
   });
 
+  it("adds schema_hint when column does not exist", async () => {
+    mockQuery.mockRejectedValueOnce(new Error('column "id" does not exist'));
+    const result = await runReadonlyQuery(
+      { sql: "SELECT id FROM stages", purpose: "bad stages id" },
+      baseConfig,
+    );
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error_type).toBe("execution_error");
+      expect(result.schema_hint).toMatch(/stages/i);
+      expect(result.schema_hint).toMatch(/status_id/i);
+    }
+  });
+
   it("returns empty result set", async () => {
     mockQuery.mockResolvedValueOnce({ rows: [], fields: [{ name: "id" }] });
     const result = await runReadonlyQuery(
