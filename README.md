@@ -18,7 +18,7 @@
 - Node.js **20+** (на хосте OpenClaw лучше **22+**, как требует OpenClaw 2026.6.x)
 - Доступ к существующей PostgreSQL с данными amoCRM
 - OpenClaw **>= 2026.5.17** на сервере (для установки plugin)
-- Желательно отдельный **read-only** пользователь БД (создаётся админом вручную)
+- Желательно отдельный **read-only** пользователь БД (создаётся админом вручную) — см. [ограничение доступа пользователя БД](Docs/db-user-access.md)
 
 ## Структура
 
@@ -26,6 +26,7 @@
 .
 ├── Docs/
 │   ├── sql/                 # описание схемы (не менять)
+│   ├── db-user-access.md    # права роли БД для бота (ACL / RLS)
 │   └── generated/
 │       └── schema-overview.md
 ├── src/
@@ -199,17 +200,16 @@ openclaw plugins uninstall amocrm-readonly-sql
 
 ## Рекомендация админу БД (вручную)
 
-Создайте read-only роль сами (плагин этого **не** делает):
+Плагин **не** создаёт роли и **не** меняет `GRANT`/`REVOKE`/RLS.
 
-```sql
-CREATE ROLE amocrm_readonly LOGIN PASSWORD '...';
-GRANT CONNECT ON DATABASE amocrm TO amocrm_readonly;
-GRANT USAGE ON SCHEMA public TO amocrm_readonly;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO amocrm_readonly;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO amocrm_readonly;
-```
+Полная инструкция: **[Docs/db-user-access.md](Docs/db-user-access.md)** — создание роли `amocrm_openclaw`, column-level `SELECT`, скрытие custom fields (например id `851323`, `851325`) через RLS, шпаргалка как забирать права.
 
-При желании отзовите `SELECT` на `raw_webhooks` / `sync_state`.
+Кратко:
+
+1. Отдельная LOGIN-роль только для плагина.
+2. Выдать минимальный `SELECT` (лучше без колонок `raw` / `payload`).
+3. Чувствительные строки в `custom_field_values` — через RLS или вообще без `SELECT` на таблицу.
+4. Прописать роль в `.env` плагина → `npm run check-connection` → restart gateway.
 
 ## Разработка / тесты
 
@@ -239,3 +239,5 @@ npm run plugin:validate
 ## Лицензия / секретность
 
 Не коммитьте `.env`. Не публикуйте пароли и gateway/Telegram tokens в чатах и репозитории.
+
+Ограничение данных для модели на уровне PostgreSQL: [Docs/db-user-access.md](Docs/db-user-access.md).
