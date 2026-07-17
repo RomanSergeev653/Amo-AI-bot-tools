@@ -1,14 +1,14 @@
 {
-  "name": "openclaw-amocrm-readonly-sql",
-  "version": "0.2.0",
-  "description": "OpenClaw tool plugin: safe read-only SQL queries against an existing amoCRM PostgreSQL database",
+  "name": "amocrm-f5ai-agent",
+  "version": "0.3.0",
+  "description": "F5AI + Telegram agent with safe read-only SQL tools for amoCRM PostgreSQL (optional OpenClaw plugin entry)",
   "type": "module",
   "main": "./dist/index.js",
   "files": [
     "dist",
     "openclaw.plugin.json",
     "README.md",
-    "Docs/generated",
+    "Docs",
     ".env.example",
     "scripts"
   ],
@@ -17,11 +17,15 @@
     "plugin:build": "npm run build && openclaw plugins build --entry ./dist/index.js",
     "plugin:validate": "npm run plugin:build && openclaw plugins validate --entry ./dist/index.js",
     "check-connection": "tsx scripts/check-connection.ts",
+    "probe:f5ai": "tsx scripts/probe-f5ai.ts",
+    "cli:chat": "tsx scripts/cli-chat.ts",
+    "telegram": "tsx scripts/telegram-bot.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
     "dotenv": "^16.5.0",
+    "grammy": "^1.36.1",
     "pg": "^8.16.0",
     "typebox": "^1.0.34"
   },

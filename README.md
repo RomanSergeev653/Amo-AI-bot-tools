@@ -1,15 +1,21 @@
-# amoCRM Read-only SQL (OpenClaw plugin)
+# amoCRM Read-only SQL + F5AI agent
 
-Универсальный **read-only** tool для существующего OpenClaw: безопасные `SELECT` к уже работающей PostgreSQL-базе amoCRM.
+Два режима:
+
+1. **OpenClaw plugin** — tool `query_amocrm_database` / `get_amocrm_schema` внутри существующего OpenClaw.
+2. **Standalone agent** — модель через [F5AI](https://f5ai.ru/api), tools те же, общение через **Telegram** или CLI. OpenClaw не нужен.
 
 > **Проект не создаёт, не запускает и не обслуживает PostgreSQL.**  
 > Он только подключается к уже существующей базе по указанным доступам.
 
-## Что это даёт боту
+Подробно про standalone: **[Docs/f5ai-telegram-agent.md](Docs/f5ai-telegram-agent.md)**.  
+Права роли БД: **[Docs/db-user-access.md](Docs/db-user-access.md)**.
 
-Один основной tool: `query_amocrm_database` — модель формирует SQL, tool проверяет его и выполняет только чтение.
+## Что это даёт
 
-Вспомогательный tool: `get_amocrm_schema` — статическая схема таблиц/колонок/join’ов без данных клиентов (чтобы меньше ошибаться в SQL).
+Один основной tool: `query_amocrm_database` — модель формирует SQL, сервис проверяет его и выполняет только чтение.
+
+Вспомогательный tool: `get_amocrm_schema` — статическая схема таблиц/колонок/join’ов без данных клиентов.
 
 Примеры вопросов: число активных сделок, сделки без задач, продажи за период, поиск контакта, просроченные задачи и т.д.
 
@@ -19,6 +25,21 @@
 - Доступ к существующей PostgreSQL с данными amoCRM
 - OpenClaw **>= 2026.5.17** на сервере (для установки plugin)
 - Желательно отдельный **read-only** пользователь БД (создаётся админом вручную) — см. [ограничение доступа пользователя БД](Docs/db-user-access.md)
+- Для standalone: токен [F5AI API](https://f5ai.ru/api) и (опционально) Telegram bot token
+
+## Быстрый старт: F5AI + Telegram (без OpenClaw)
+
+```bash
+cp .env.example .env
+# заполните F5AI_API_KEY, AMOCRM_DB_*, TELEGRAM_BOT_TOKEN
+
+npm install
+npm run probe:f5ai    # проверка API
+npm run cli:chat      # чат в терминале
+npm run telegram      # бот в Telegram
+```
+
+См. [Docs/f5ai-telegram-agent.md](Docs/f5ai-telegram-agent.md).
 
 ## Структура
 
@@ -27,24 +48,31 @@
 ├── Docs/
 │   ├── sql/                 # описание схемы (не менять)
 │   ├── db-user-access.md    # права роли БД для бота (ACL / RLS)
+│   ├── f5ai-telegram-agent.md
 │   └── generated/
 │       └── schema-overview.md
 ├── src/
+│   ├── agent/               # цикл агента (F5AI + tools)
+│   ├── f5ai/                # HTTP-клиент api.f5ai.ru
 │   ├── config/              # .env / plugin config
 │   ├── db/                  # пул PostgreSQL, read-only транзакции
 │   ├── security/            # SQL-валидатор
+│   ├── schema/              # словарь схемы для LLM
 │   ├── tools/               # query service
-│   └── index.ts             # OpenClaw defineToolPlugin
+│   └── index.ts             # OpenClaw defineToolPlugin (опционально)
 ├── scripts/
-│   ├── install.sh           # интерактивная настройка доступов
-│   └── check-connection.ts
+│   ├── install.sh           # интерактивная настройка доступов к БД
+│   ├── check-connection.ts
+│   ├── probe-f5ai.ts
+│   ├── cli-chat.ts
+│   └── telegram-bot.ts
 ├── tests/
 ├── .env.example
 ├── openclaw.plugin.json
 └── package.json
 ```
 
-## Установка на сервере OpenClaw
+## Установка OpenClaw plugin (опционально)
 
 ### 1. Скопировать проект на сервер
 

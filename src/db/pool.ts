@@ -9,14 +9,16 @@ let poolKey = "";
 
 function sslOption(sslmode: string): boolean | { rejectUnauthorized: boolean } {
   const mode = sslmode.toLowerCase();
-  if (mode === "disable") return false;
-  if (mode === "require" || mode === "prefer" || mode === "allow") {
+  // node-pg cannot do libpq "prefer" retry; treat prefer/allow as plain TCP
+  // so hosts without SSL work with the default AMOCRM_DB_SSLMODE=prefer.
+  if (mode === "disable" || mode === "prefer" || mode === "allow") return false;
+  if (mode === "require") {
     return { rejectUnauthorized: false };
   }
   if (mode === "verify-full" || mode === "verify-ca") {
     return { rejectUnauthorized: true };
   }
-  return { rejectUnauthorized: false };
+  return false;
 }
 
 function makeKey(config: DbConfig): string {
